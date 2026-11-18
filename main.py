@@ -1,17 +1,20 @@
-"""Studio North team forecast: cell-level shifted-Beta-Geometric retention with a
-cohort trend, plus age-profiled cash per retained member.
+"""Studio North team forecast: hierarchically shrunk Beta-discrete-Weibull (BdW)
+retention, plus recalibrated cash per retained member with a pooled drift.
 
-Retention: within each channel x stated-need cell, members have persistent monthly
-churn propensities drawn from a Beta distribution (Fader & Hardie sBG). The Beta
-mean shifts with a linear acquisition-cohort trend; concentration is shared within
-the cell. Parameters are fitted by penalized maximum likelihood on observed renewal
-decisions only. Cash: expected net revenue and contribution per retained member by
-cell and customer age, smoothed across neighbouring ages; ages beyond the observed
-range reuse the cell's late-age average. The profile is then recalibrated to the
-cell's last three observed calendar months (observed / profile-implied cash).
+Retention: within each channel x stated-need cell, members have persistent churn
+propensities drawn from a Beta distribution, and a discrete-Weibull shape c lets
+each member's propensity rise (c > 1) or fall (c < 1) with tenure; c = 1 is the
+shifted-Beta-Geometric (sBG) special case. The Beta mean has a linear acquisition-
+cohort trend. All four cells are fitted jointly by penalized maximum likelihood
+with cell -> channel -> overall shrinkage, on observed renewal decisions only.
+Cash: net revenue and contribution per retained member by cell and age (smoothed
+across neighbouring ages; late-age average beyond observed ages), recalibrated to
+the last three observed months (credibility-shrunk toward channel and overall),
+then grown by a monthly drift estimated over the last 12 months pooled across
+all cells and capped at +/-2%.
 
-This is NOT the released hierarchical sBG + Gamma reference model. Model choice and
-settings are justified by chronological validation in scripts/backtest.py.
+This is NOT the released hierarchical sBG + Gamma reference. Choices are justified
+by chronological validation in scripts/backtest.py and experiments/.
 """
 from __future__ import annotations
 import argparse
@@ -23,7 +26,7 @@ import time
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
-from scipy.special import expit
+from scipy.special import betaln, expit
 
 KEYS = ['cohort_month','channel','primary_need','calendar_month','age_month']
 EXPOSURES = ['n_acquired','origin_retained']
@@ -36,9 +39,18 @@ PRIOR_TREND_SD = 1.0        # weak ridge on the cohort trend (logit scale)
 PRIOR_LOGPHI = (np.log(4.0), 2.0)  # weak prior on log concentration
 CASH_WINDOW = 1             # +/- ages pooled when estimating cash per member
 LATE_AGES = 6               # last observed ages averaged for extrapolation
+RETENTION_MODEL = 'bdw_pooled'  # 'bdw_pooled' | 'sbg' | 'bdw' | 'logit_hazard'
+PRIOR_LOGC_SD = 0.5         # BdW: log Weibull shape c ~ N(0, sd); c = 1 is sBG
+PRIOR_LOGIT_SD = 2.0        # logistic hazard: ridge on slopes
 CASH_METHOD = 'recalibrate' # 'age' | 'recency' | 'cohort_trend' | 'recalibrate'
 RECENCY_HALF_LIFE = 6.0     # months, for CASH_METHOD == 'recency'
 RECAL_MONTHS = 3            # recent calendar months, for CASH_METHOD == 'recalibrate'
+# Shrinkage (cell -> channel -> overall), fixed before scoring.
+POOL_CHANNEL_SD = 0.5       # bdw_pooled: channel deviations from overall parameters
+POOL_CELL_SD = 0.3          # bdw_pooled: cell deviations from channel parameters
+RECAL_SHRINK = 300          # member-months credibility constant for recalibration (0 = off)
+DRIFT_MONTHS = 12           # >0: project pooled cash drift estimated over this many months
+DRIFT_CAP = 0.02            # max |monthly drift| projected
 
 
 def build_panel(tables: dict[str,pd.DataFrame], origin: pd.Period) -> pd.DataFrame:
@@ -118,6 +130,140 @@ def fit_sbg(cell_panel: pd.DataFrame) -> np.ndarray:
     return best.x
 
 
+def _renewal_data(cell_panel: pd.DataFrame):
+    p = cell_panel.sort_values(['cohort','age'])
+    prev = p.groupby('cohort').n_retained.shift(1)
+    d = p.assign(prev=prev).dropna(subset=['prev'])
+    d = d[d.prev>0]
+    return (d.age.to_numpy(float), d.prev.to_numpy(float), d.n_retained.to_numpy(float), _cohort_z(d.cohort))
+
+
+def renewal_prob(params: np.ndarray, t: np.ndarray, z: np.ndarray) -> np.ndarray:
+    """Probability of renewing at age t (t >= 1) given active at t-1."""
+    if RETENTION_MODEL == 'logit_hazard':
+        c0,c1,c2 = params
+        return 1.0-expit(c0+c1*np.log(t)+c2*z)
+    a,b,lphi = params[:3]
+    phi = np.exp(lphi); mu = expit(a+b*z)
+    if RETENTION_MODEL in ('bdw','bdw_pooled'):
+        al, be, c = mu*phi, (1-mu)*phi, np.exp(params[3])
+        return np.exp(betaln(al,be+t**c)-betaln(al,be+(t-1.0)**c))
+    return 1.0-mu*phi/(phi+t-1.0)
+
+
+def fit_retention(cell_panel: pd.DataFrame) -> np.ndarray:
+    """Penalized MLE of the selected retention model on observed renewals.
+    sbg: (a, b, log phi). bdw: Beta-discrete-Weibull, adds log c, where c != 1
+    lets each member's churn propensity rise (c > 1) or fall (c < 1) with
+    tenure. logit_hazard: churn = logistic(c0 + c1 log t + c2 z_k), with no
+    Beta mixture."""
+    if RETENTION_MODEL == 'sbg':
+        return fit_sbg(cell_panel)
+    t,s_prev,s,z = _renewal_data(cell_panel)
+    if RETENTION_MODEL == 'bdw':
+        starts = [[a,0.0,lp,0.0] for a,lp in ((-1.5,np.log(4.0)),(-2.5,0.0),(-0.5,np.log(10.0)))]
+        bounds = [(-10,5),(-5,5),(-5,8),(-2,2)]
+        def pen(th):
+            return (0.5*(th[1]/PRIOR_TREND_SD)**2 + 0.5*((th[2]-PRIOR_LOGPHI[0])/PRIOR_LOGPHI[1])**2
+                    + 0.5*(th[3]/PRIOR_LOGC_SD)**2)
+    else:
+        starts = [[-2.0,0.0,0.0],[-1.0,-0.5,0.0],[-3.0,-1.0,0.0]]
+        bounds = [(-10,5),(-5,5),(-5,5)]
+        def pen(th):
+            return 0.5*((th[1]/PRIOR_LOGIT_SD)**2+(th[2]/PRIOR_TREND_SD)**2)
+    def nll(th):
+        q = np.clip(renewal_prob(th,t,z),1e-12,1-1e-12)
+        return -(s*np.log(q)+(s_prev-s)*np.log1p(-q)).sum()+pen(th)
+    best = None
+    for st in starts:
+        r = minimize(nll,np.array(st,float),method='L-BFGS-B',bounds=bounds)
+        if best is None or r.fun < best.fun:
+            best = r
+    return best.x
+
+
+def fit_bdw_pooled(panel: pd.DataFrame) -> dict:
+    """Beta-discrete-Weibull fitted jointly across the channel x need cells with
+    hierarchical shrinkage: theta_cell = theta_all + gamma_channel + delta_cell,
+    gamma ~ N(0, POOL_CHANNEL_SD^2), delta ~ N(0, POOL_CELL_SD^2) elementwise.
+    theta = (a, b, log phi, log c), with the overall priors used by 'bdw'."""
+    cells = sorted({tuple(x) for x in panel[CELL].drop_duplicates().to_numpy()})
+    chans = sorted({c[0] for c in cells})
+    data = {c:_renewal_data(panel[(panel.channel==c[0])&(panel.primary_need==c[1])]) for c in cells}
+    nC, nH = len(cells), len(chans)
+    def unpack(x):
+        base = x[:4]; gam = x[4:4+4*nH].reshape(nH,4); dlt = x[4+4*nH:].reshape(nC,4)
+        return base, gam, dlt
+    def nll(x):
+        base, gam, dlt = unpack(x)
+        tot = 0.0
+        for i,c in enumerate(cells):
+            th = base+gam[chans.index(c[0])]+dlt[i]
+            t,sp,s,z = data[c]
+            q = np.clip(np.exp(betaln(expit(th[0]+th[1]*z)*np.exp(th[2]),(1-expit(th[0]+th[1]*z))*np.exp(th[2])+t**np.exp(th[3]))
+                               -betaln(expit(th[0]+th[1]*z)*np.exp(th[2]),(1-expit(th[0]+th[1]*z))*np.exp(th[2])+(t-1.0)**np.exp(th[3]))),1e-12,1-1e-12)
+            tot -= (s*np.log(q)+(sp-s)*np.log1p(-q)).sum()
+        pen = (0.5*(base[1]/PRIOR_TREND_SD)**2 + 0.5*((base[2]-PRIOR_LOGPHI[0])/PRIOR_LOGPHI[1])**2
+               + 0.5*(base[3]/PRIOR_LOGC_SD)**2 + 0.5*np.sum((gam/POOL_CHANNEL_SD)**2)
+               + 0.5*np.sum((dlt/POOL_CELL_SD)**2))
+        return tot+pen
+    best = None
+    for a0,lp0 in ((-1.5,np.log(4.0)),(-2.5,0.0),(-0.5,np.log(10.0))):
+        x0 = np.zeros(4+4*nH+4*nC); x0[0], x0[2] = a0, lp0
+        r = minimize(nll,x0,method='L-BFGS-B')
+        if best is None or r.fun < best.fun:
+            best = r
+    base, gam, dlt = unpack(best.x)
+    return {c: base+gam[chans.index(c[0])]+dlt[i] for i,c in enumerate(cells)}
+
+
+def recalibration_ratios(panel: pd.DataFrame, origin: pd.Period) -> dict:
+    """Observed / profile-implied contribution over the last RECAL_MONTHS months.
+    With RECAL_SHRINK > 0 the cell ratio is credibility-weighted toward its
+    channel ratio, and the channel ratio toward the overall ratio, using
+    retained member-months in the window: Z = n / (n + RECAL_SHRINK)."""
+    parts = []
+    for (ch,nd),cell in panel.groupby(CELL):
+        p = cell[(cell.age>=1)&(cell.n_retained>0)].copy()
+        prof = cash_profile(cell,np.sort(p.age.unique()))
+        p['implied'] = p.n_retained*prof.loc[p.age,'contribution_pm'].to_numpy()
+        back = origin.ordinal-(p.cohort.apply(lambda c:c.ordinal)+p.age)
+        w = p[back < RECAL_MONTHS]
+        parts.append((ch,nd,w.contribution.sum(),w.implied.sum(),w.n_retained.sum()))
+    df = pd.DataFrame(parts,columns=['channel','primary_need','obs','imp','n'])
+    ratio = lambda o,i: float(np.clip(o/i,0.5,2.0)) if i>0 else 1.0
+    if RECAL_SHRINK <= 0:
+        return {(r.channel,r.primary_need):ratio(r.obs,r.imp) for r in df.itertuples()}
+    r_all = ratio(df.obs.sum(),df.imp.sum()); out = {}
+    for ch,g in df.groupby('channel'):
+        z = g.n.sum()/(g.n.sum()+RECAL_SHRINK); r_ch = z*ratio(g.obs.sum(),g.imp.sum())+(1-z)*r_all
+        for r in g.itertuples():
+            z2 = r.n/(r.n+RECAL_SHRINK); out[(ch,r.primary_need)] = z2*ratio(r.obs,r.imp)+(1-z2)*r_ch
+    return out
+
+
+def pooled_drift(panel: pd.DataFrame, origin: pd.Period) -> float:
+    """Monthly growth of observed vs profile-implied contribution, pooled over all
+    cells (no per-cell parameter), from a weighted log-linear fit over the last
+    DRIFT_MONTHS calendar months; capped at +/- DRIFT_CAP."""
+    if DRIFT_MONTHS <= 0:
+        return 0.0
+    rows = []
+    for _,cell in panel.groupby(CELL):
+        p = cell[(cell.age>=1)&(cell.n_retained>0)].copy()
+        prof = cash_profile(cell,np.sort(p.age.unique()))
+        p['implied'] = p.n_retained*prof.loc[p.age,'contribution_pm'].to_numpy()
+        p['back'] = origin.ordinal-(p.cohort.apply(lambda c:c.ordinal)+p.age)
+        rows.append(p[p.back < DRIFT_MONTHS][['back','contribution','implied']])
+    m = pd.concat(rows).groupby('back')[['contribution','implied']].sum()
+    m = m[(m.implied>0)&(m.contribution>0)]
+    if len(m) < 3:
+        return 0.0
+    x = -m.index.to_numpy(float); y = np.log(m.contribution/m.implied).to_numpy(); w = m.implied.to_numpy()
+    xb = np.average(x,weights=w); g = np.sum(w*(x-xb)*(y-np.average(y,weights=w)))/np.sum(w*(x-xb)**2)
+    return float(np.clip(np.expm1(g),-DRIFT_CAP,DRIFT_CAP))
+
+
 def cash_profile(cell_panel: pd.DataFrame, ages: np.ndarray, origin: pd.Period | None = None) -> pd.DataFrame:
     """Net revenue and contribution per retained member by age, pooling
     neighbouring ages; beyond observed ages use the late-age average.
@@ -174,23 +320,30 @@ def predict(tables: dict[str,pd.DataFrame], prediction_grid: pd.DataFrame, *, se
     grid = prediction_grid.copy(deep=True)
     origin = pd.Period(grid.calendar_month.min(),freq='M') - 1
     panel = build_panel(tables,origin)
+    pooled = fit_bdw_pooled(panel) if RETENTION_MODEL == 'bdw_pooled' else None
+    shrunk_recal = CASH_METHOD == 'recalibrate' and (RECAL_SHRINK > 0 or DRIFT_MONTHS > 0)
+    ratios = recalibration_ratios(panel,origin) if shrunk_recal else None
+    drift = pooled_drift(panel,origin)
     results = []
     for (channel,need),cell in panel.groupby(CELL):
-        a,b,lphi = fit_sbg(cell)
-        phi = np.exp(lphi)
+        params = pooled[(channel,need)] if pooled is not None else fit_retention(cell)
         rows = grid[(grid.channel==channel)&(grid.primary_need==need)].copy()
         if rows.empty:
             continue
         prof = cash_profile(cell,np.sort(rows.age_month.unique()),origin)
         rows['cohort'] = pd.PeriodIndex(rows.cohort_month,freq='M')
-        mult = cash_multipliers(cell,rows.cohort,origin)
-        rows['mu'] = expit(a+b*_cohort_z(rows.cohort))
+        if ratios is not None:
+            ahead = np.array([pd.Period(m,freq='M').ordinal-origin.ordinal for m in rows.calendar_month],float)
+            mult = ratios[(channel,need)]*(1.0+drift)**ahead
+        else:
+            mult = cash_multipliers(cell,rows.cohort,origin)
+        rows['z'] = _cohort_z(rows.cohort)
         rows['origin_age'] = [origin.ordinal-c.ordinal for c in rows.cohort]
         surv = []
         for r in rows.itertuples(index=False):
             ts = np.arange(r.origin_age+1,int(r.age_month)+1,dtype=float)
-            h = r.mu*phi/(phi+ts-1.0)
-            surv.append(float(r.origin_retained)*float(np.prod(1.0-h)))
+            q = renewal_prob(params,ts,np.full(len(ts),r.z))
+            surv.append(float(r.origin_retained)*float(np.prod(q)))
         rows['predicted_retained'] = surv
         net_pm = prof.loc[rows.age_month,'net_pm'].to_numpy()*mult
         con_pm = np.minimum(net_pm,prof.loc[rows.age_month,'contribution_pm'].to_numpy()*mult)
@@ -261,7 +414,7 @@ def main():
     args.output.parent.mkdir(parents=True,exist_ok=True)
     predictions.to_csv(args.output,index=False,float_format='%.10f',lineterminator='\n')
     sha = lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest()
-    receipt = {'model':'Cell-level sBG retention with cohort trend + age-profiled cash per member',
+    receipt = {'model':'Hierarchically shrunk Beta-discrete-Weibull retention + recalibrated cash with pooled drift',
                'rows':len(predictions),'seed':args.seed,'elapsed_seconds':time.monotonic()-started,
                'source_sha256':sha(__file__),'uv_lock_sha256':sha(Path(__file__).with_name('uv.lock')),
                'contract_sha256':sha(contract_path),'prediction_grid_sha256':sha(args.prediction_grid),

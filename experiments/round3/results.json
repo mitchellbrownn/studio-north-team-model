@@ -1,0 +1,285 @@
+{
+ "variants": {
+  "sBG + recal 3m (published)": {},
+  "BdW per-cell + recal 3m": {
+   "RETENTION_MODEL": "bdw"
+  },
+  "BdW pooled + recal 3m": {
+   "RETENTION_MODEL": "bdw_pooled"
+  },
+  "BdW pooled + recal 3m shrunk": {
+   "RETENTION_MODEL": "bdw_pooled",
+   "RECAL_SHRINK": 300
+  },
+  "BdW pooled + recal 3m shrunk + drift 12m": {
+   "RETENTION_MODEL": "bdw_pooled",
+   "RECAL_SHRINK": 300,
+   "DRIFT_MONTHS": 12
+  },
+  "BdW pooled + recal 1m shrunk": {
+   "RETENTION_MODEL": "bdw_pooled",
+   "RECAL_SHRINK": 300,
+   "RECAL_MONTHS": 1
+  },
+  "BdW pooled + recal 1m shrunk + drift 12m": {
+   "RETENTION_MODEL": "bdw_pooled",
+   "RECAL_SHRINK": 300,
+   "RECAL_MONTHS": 1,
+   "DRIFT_MONTHS": 12
+  }
+ },
+ "base": {
+  "RETENTION_MODEL": "sbg",
+  "CASH_METHOD": "recalibrate",
+  "RECAL_MONTHS": 3,
+  "RECAL_SHRINK": 0,
+  "DRIFT_MONTHS": 0
+ },
+ "results": {
+  "sBG + recal 3m (published)": {
+   "cutoffs": {
+    "2024-12": {
+     "contribution_wape": 0.06907163938851227,
+     "retained_member_wape": 0.11724420431788261,
+     "retained_signed_bias": 0.06307008462532841,
+     "retention_only_contribution_wape": 0.06940099131975731,
+     "signed_bias": -0.022995725253471964
+    },
+    "2025-03": {
+     "contribution_wape": 0.05814814348591943,
+     "retained_member_wape": 0.07532099127634109,
+     "retained_signed_bias": 0.015847557364021908,
+     "retention_only_contribution_wape": 0.030378241483793797,
+     "signed_bias": -0.03508342367672441
+    },
+    "2025-06": {
+     "contribution_wape": 0.055003083544437587,
+     "retained_member_wape": 0.059315053112511985,
+     "retained_signed_bias": -0.011590584705492185,
+     "retention_only_contribution_wape": 0.026900351005732487,
+     "signed_bias": -0.041546791454333876
+    }
+   },
+   "runtime_s": [
+    0.3493157000048086,
+    0.4418665999546647,
+    0.6254949999856763
+   ],
+   "drift": {
+    "2024-12": 0.0,
+    "2025-03": 0.0,
+    "2025-06": 0.0
+   }
+  },
+  "BdW per-cell + recal 3m": {
+   "cutoffs": {
+    "2024-12": {
+     "contribution_wape": 0.07698120049401361,
+     "retained_member_wape": 0.10738367600823717,
+     "retained_signed_bias": 0.049343541866295866,
+     "retention_only_contribution_wape": 0.05749051261416272,
+     "signed_bias": -0.035547778847069986
+    },
+    "2025-03": {
+     "contribution_wape": 0.0661580526743719,
+     "retained_member_wape": 0.07522708982693424,
+     "retained_signed_bias": 0.0034187901305280806,
+     "retention_only_contribution_wape": 0.03034824559783313,
+     "signed_bias": -0.047174366102825244
+    },
+    "2025-06": {
+     "contribution_wape": 0.056149015136373596,
+     "retained_member_wape": 0.05997684500036003,
+     "retained_signed_bias": -0.013686274341922575,
+     "retention_only_contribution_wape": 0.027330445337224528,
+     "signed_bias": -0.04364680520392005
+    }
+   },
+   "runtime_s": [
+    0.3964974999544211,
+    0.508709599962458,
+    0.6584299000096507
+   ],
+   "drift": {
+    "2024-12": 0.0,
+    "2025-03": 0.0,
+    "2025-06": 0.0
+   }
+  },
+  "BdW pooled + recal 3m": {
+   "cutoffs": {
+    "2024-12": {
+     "contribution_wape": 0.07700574234377207,
+     "retained_member_wape": 0.10804203643501105,
+     "retained_signed_bias": 0.051811163564813884,
+     "retention_only_contribution_wape": 0.059415261822041994,
+     "signed_bias": -0.03291606348274657
+    },
+    "2025-03": {
+     "contribution_wape": 0.06591746462338703,
+     "retained_member_wape": 0.07550599904990915,
+     "retained_signed_bias": 0.003919186194333649,
+     "retention_only_contribution_wape": 0.030539570215699485,
+     "signed_bias": -0.0465129387279815
+    },
+    "2025-06": {
+     "contribution_wape": 0.05522583090020909,
+     "retained_member_wape": 0.0594144338932466,
+     "retained_signed_bias": -0.012382152754771026,
+     "retention_only_contribution_wape": 0.02689673333880206,
+     "signed_bias": -0.042245498580621176
+    }
+   },
+   "runtime_s": [
+    1.5613511000410654,
+    2.0682081000413746,
+    2.5351473999908194
+   ],
+   "drift": {
+    "2024-12": 0.0,
+    "2025-03": 0.0,
+    "2025-06": 0.0
+   }
+  },
+  "BdW pooled + recal 3m shrunk": {
+   "cutoffs": {
+    "2024-12": {
+     "contribution_wape": 0.07697741423643582,
+     "retained_member_wape": 0.10804203643501105,
+     "retained_signed_bias": 0.051811163564813884,
+     "retention_only_contribution_wape": 0.059415261822041994,
+     "signed_bias": -0.032883447976618796
+    },
+    "2025-03": {
+     "contribution_wape": 0.06591194602768173,
+     "retained_member_wape": 0.07550599904990915,
+     "retained_signed_bias": 0.003919186194333649,
+     "retention_only_contribution_wape": 0.030539570215699485,
+     "signed_bias": -0.04648990484368284
+    },
+    "2025-06": {
+     "contribution_wape": 0.05523993320355403,
+     "retained_member_wape": 0.0594144338932466,
+     "retained_signed_bias": -0.012382152754771026,
+     "retention_only_contribution_wape": 0.02689673333880206,
+     "signed_bias": -0.0422651878807392
+    }
+   },
+   "runtime_s": [
+    1.5688679000013508,
+    2.0555553000303917,
+    2.5089264000416733
+   ],
+   "drift": {
+    "2024-12": 0.0,
+    "2025-03": 0.0,
+    "2025-06": 0.0
+   }
+  },
+  "BdW pooled + recal 3m shrunk + drift 12m": {
+   "cutoffs": {
+    "2024-12": {
+     "contribution_wape": 0.06495275428242453,
+     "retained_member_wape": 0.10804203643501105,
+     "retained_signed_bias": 0.051811163564813884,
+     "retention_only_contribution_wape": 0.059415261822041994,
+     "signed_bias": 0.02545452652762025
+    },
+    "2025-03": {
+     "contribution_wape": 0.04977390043626484,
+     "retained_member_wape": 0.07550599904990915,
+     "retained_signed_bias": 0.003919186194333649,
+     "retention_only_contribution_wape": 0.030539570215699485,
+     "signed_bias": -0.009959445888254329
+    },
+    "2025-06": {
+     "contribution_wape": 0.042615263411362354,
+     "retained_member_wape": 0.0594144338932466,
+     "retained_signed_bias": -0.012382152754771026,
+     "retention_only_contribution_wape": 0.02689673333880206,
+     "signed_bias": -0.015602917282416076
+    }
+   },
+   "runtime_s": [
+    1.589883300010115,
+    2.109778299985919,
+    2.563215600035619
+   ],
+   "drift": {
+    "2024-12": 0.009584461608533696,
+    "2025-03": 0.007881646236314092,
+    "2025-06": 0.008065160923917224
+   }
+  },
+  "BdW pooled + recal 1m shrunk": {
+   "cutoffs": {
+    "2024-12": {
+     "contribution_wape": 0.0753346010174499,
+     "retained_member_wape": 0.10804203643501105,
+     "retained_signed_bias": 0.051811163564813884,
+     "retention_only_contribution_wape": 0.059415261822041994,
+     "signed_bias": -0.02342513536201913
+    },
+    "2025-03": {
+     "contribution_wape": 0.06482726763770037,
+     "retained_member_wape": 0.07550599904990915,
+     "retained_signed_bias": 0.003919186194333649,
+     "retention_only_contribution_wape": 0.030539570215699485,
+     "signed_bias": -0.043625134818886226
+    },
+    "2025-06": {
+     "contribution_wape": 0.04865762268660461,
+     "retained_member_wape": 0.0594144338932466,
+     "retained_signed_bias": -0.012382152754771026,
+     "retention_only_contribution_wape": 0.02689673333880206,
+     "signed_bias": -0.02668639123050759
+    }
+   },
+   "runtime_s": [
+    1.557802100025583,
+    2.1121856000390835,
+    2.5469504999928176
+   ],
+   "drift": {
+    "2024-12": 0.0,
+    "2025-03": 0.0,
+    "2025-06": 0.0
+   }
+  },
+  "BdW pooled + recal 1m shrunk + drift 12m": {
+   "cutoffs": {
+    "2024-12": {
+     "contribution_wape": 0.06693046182678432,
+     "retained_member_wape": 0.10804203643501105,
+     "retained_signed_bias": 0.051811163564813884,
+     "retention_only_contribution_wape": 0.059415261822041994,
+     "signed_bias": 0.03548102563869173
+    },
+    "2025-03": {
+     "contribution_wape": 0.049397277496068454,
+     "retained_member_wape": 0.07550599904990915,
+     "retained_signed_bias": 0.003919186194333649,
+     "retention_only_contribution_wape": 0.030539570215699485,
+     "signed_bias": -0.006986257578421108
+    },
+    "2025-06": {
+     "contribution_wape": 0.04108995060661003,
+     "retained_member_wape": 0.0594144338932466,
+     "retained_signed_bias": -0.012382152754771026,
+     "retention_only_contribution_wape": 0.02689673333880206,
+     "signed_bias": 0.0004096430770073182
+    }
+   },
+   "runtime_s": [
+    1.5990806000190787,
+    2.08528280002065,
+    2.578985299973283
+   ],
+   "drift": {
+    "2024-12": 0.009584461608533696,
+    "2025-03": 0.007881646236314092,
+    "2025-06": 0.008065160923917224
+   }
+  }
+ }
+}

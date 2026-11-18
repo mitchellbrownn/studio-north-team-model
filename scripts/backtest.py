@@ -28,7 +28,15 @@ import example_constant_hazard as example              # noqa: E402
 ORIGINS = [('2024-12',12),('2025-03',9),('2025-06',6)]
 # Candidate cash specifications compared on identical origins. The selected
 # configuration is the module default in main.py; every candidate is reported.
+SBG = {'RETENTION_MODEL':'sbg','RECAL_SHRINK':0,'DRIFT_MONTHS':0}
 VARIANTS = {
+    # Round 2: retention alternatives, all with the selected recalibrated cash.
+    'R_sbg_reference_family': {'RETENTION_MODEL':'sbg','CASH_METHOD':'recalibrate','RECAL_MONTHS':3},
+    'R_sbg_trend_sd0.3': {'RETENTION_MODEL':'sbg','PRIOR_TREND_SD':0.3,'CASH_METHOD':'recalibrate','RECAL_MONTHS':3},
+    'R_bdw': {'RETENTION_MODEL':'bdw','CASH_METHOD':'recalibrate','RECAL_MONTHS':3},
+    'R_bdw_trend_sd0.3': {'RETENTION_MODEL':'bdw','PRIOR_TREND_SD':0.3,'CASH_METHOD':'recalibrate','RECAL_MONTHS':3},
+    'R_logit_hazard': {'RETENTION_MODEL':'logit_hazard','CASH_METHOD':'recalibrate','RECAL_MONTHS':3},
+    # Round 1: cash specifications, all with sBG retention.
     'A_age_profile': {'CASH_METHOD':'age'},
     'B_recency_hl3': {'CASH_METHOD':'recency','RECENCY_HALF_LIFE':3.0},
     'B_recency_hl6': {'CASH_METHOD':'recency','RECENCY_HALF_LIFE':6.0},
@@ -92,10 +100,10 @@ def main():
         actual = full[['cohort_month','channel','primary_need','calendar_month','n_retained','contribution']]
         row = {'origin':o,'horizon_months':h,'grid_rows':len(grid),
                'max_forecast_age':int(grid.age_month.max())}
-        defaults = {k:getattr(model,k) for k in ('CASH_METHOD','RECENCY_HALF_LIFE','RECAL_MONTHS')}
+        defaults = {k:getattr(model,k) for k in ('CASH_METHOD','RECENCY_HALF_LIFE','RECAL_MONTHS','RETENTION_MODEL','PRIOR_TREND_SD','RECAL_SHRINK','DRIFT_MONTHS')}
         row['selected_default'] = score(model.validate_output(model.predict(tt,grid.copy(deep=True),seed=20261116),grid),actual)
         for name,settings in VARIANTS.items():
-            for k,v in settings.items():
+            for k,v in {**SBG,**settings}.items():
                 setattr(model,k,v)
             try:
                 pred = model.validate_output(model.predict(tt,grid.copy(deep=True),seed=20261116),grid)

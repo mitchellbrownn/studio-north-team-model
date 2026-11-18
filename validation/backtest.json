@@ -6,9 +6,39 @@
       "grid_rows": 576,
       "max_forecast_age": 23,
       "selected_default": {
+        "contribution_wape": 0.06495275428242453,
+        "retention_cell_wape": 0.10804203643501105,
+        "signed_contribution_bias": 0.025454526527619967,
+        "score_points": 144
+      },
+      "R_sbg_reference_family": {
         "contribution_wape": 0.06907163938851227,
         "retention_cell_wape": 0.11724420431788261,
         "signed_contribution_bias": -0.022995725253471964,
+        "score_points": 144
+      },
+      "R_sbg_trend_sd0.3": {
+        "contribution_wape": 0.06970430252714727,
+        "retention_cell_wape": 0.10341572706464484,
+        "signed_contribution_bias": -0.041385527170466424,
+        "score_points": 144
+      },
+      "R_bdw": {
+        "contribution_wape": 0.07698120049401361,
+        "retention_cell_wape": 0.10738367600823717,
+        "signed_contribution_bias": -0.03554777884706985,
+        "score_points": 144
+      },
+      "R_bdw_trend_sd0.3": {
+        "contribution_wape": 0.07935104539438996,
+        "retention_cell_wape": 0.0942353872583402,
+        "signed_contribution_bias": -0.05471569590420806,
+        "score_points": 144
+      },
+      "R_logit_hazard": {
+        "contribution_wape": 0.08674638014024454,
+        "retention_cell_wape": 0.11438727304397536,
+        "signed_contribution_bias": -0.04694211474109542,
         "score_points": 144
       },
       "A_age_profile": {
@@ -78,9 +108,39 @@
       "grid_rows": 540,
       "max_forecast_age": 23,
       "selected_default": {
+        "contribution_wape": 0.04977390043626484,
+        "retention_cell_wape": 0.07550599904990915,
+        "signed_contribution_bias": -0.00995944588825447,
+        "score_points": 135
+      },
+      "R_sbg_reference_family": {
         "contribution_wape": 0.05814814348591943,
         "retention_cell_wape": 0.07532099127634109,
         "signed_contribution_bias": -0.03508342367672455,
+        "score_points": 135
+      },
+      "R_sbg_trend_sd0.3": {
+        "contribution_wape": 0.06093912194891168,
+        "retention_cell_wape": 0.07430920416756784,
+        "signed_contribution_bias": -0.04072546912394371,
+        "score_points": 135
+      },
+      "R_bdw": {
+        "contribution_wape": 0.0661580526743719,
+        "retention_cell_wape": 0.07522708982693424,
+        "signed_contribution_bias": -0.04717436610282553,
+        "score_points": 135
+      },
+      "R_bdw_trend_sd0.3": {
+        "contribution_wape": 0.06902616823622919,
+        "retention_cell_wape": 0.07458455597012392,
+        "signed_contribution_bias": -0.052788155574941056,
+        "score_points": 135
+      },
+      "R_logit_hazard": {
+        "contribution_wape": 0.07214725128445988,
+        "retention_cell_wape": 0.07894311287610142,
+        "signed_contribution_bias": -0.05337868611050934,
         "score_points": 135
       },
       "A_age_profile": {
@@ -150,9 +210,39 @@
       "grid_rows": 432,
       "max_forecast_age": 23,
       "selected_default": {
+        "contribution_wape": 0.042615263411362354,
+        "retention_cell_wape": 0.0594144338932466,
+        "signed_contribution_bias": -0.015602917282416076,
+        "score_points": 108
+      },
+      "R_sbg_reference_family": {
         "contribution_wape": 0.055003083544437587,
         "retention_cell_wape": 0.059315053112511985,
         "signed_contribution_bias": -0.041546791454333876,
+        "score_points": 108
+      },
+      "R_sbg_trend_sd0.3": {
+        "contribution_wape": 0.05778136089080824,
+        "retention_cell_wape": 0.060081568348781006,
+        "signed_contribution_bias": -0.04535644323092836,
+        "score_points": 108
+      },
+      "R_bdw": {
+        "contribution_wape": 0.056149015136373596,
+        "retention_cell_wape": 0.05997684500036003,
+        "signed_contribution_bias": -0.04364680520392021,
+        "score_points": 108
+      },
+      "R_bdw_trend_sd0.3": {
+        "contribution_wape": 0.05896316724928989,
+        "retention_cell_wape": 0.06073473894104816,
+        "signed_contribution_bias": -0.04751979256211332,
+        "score_points": 108
+      },
+      "R_logit_hazard": {
+        "contribution_wape": 0.06114084145169498,
+        "retention_cell_wape": 0.062015598401012124,
+        "signed_contribution_bias": -0.05125995629872899,
         "score_points": 108
       },
       "A_age_profile": {
