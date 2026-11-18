@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+outputs/
+data/
+.env
+*.log
+scaffold-receipt.json

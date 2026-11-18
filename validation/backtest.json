@@ -1,0 +1,59 @@
+{
+  "origins": [
+    {
+      "origin": "2024-12",
+      "horizon_months": 12,
+      "grid_rows": 576,
+      "max_forecast_age": 23,
+      "cell_sbg": {
+        "contribution_wape": 0.07466066555654709,
+        "retention_cell_wape": 0.11724420431788261,
+        "signed_contribution_bias": -0.04471954335934002,
+        "score_points": 144
+      },
+      "constant_hazard_example": {
+        "contribution_wape": 0.3790322834775198,
+        "retention_cell_wape": 0.23855868190876492,
+        "signed_contribution_bias": -0.3767071282063309,
+        "score_points": 144
+      }
+    },
+    {
+      "origin": "2025-03",
+      "horizon_months": 9,
+      "grid_rows": 540,
+      "max_forecast_age": 23,
+      "cell_sbg": {
+        "contribution_wape": 0.0714580980891654,
+        "retention_cell_wape": 0.07532099127634109,
+        "signed_contribution_bias": -0.06051300259925092,
+        "score_points": 135
+      },
+      "constant_hazard_example": {
+        "contribution_wape": 0.3224072732554228,
+        "retention_cell_wape": 0.18531589145050045,
+        "signed_contribution_bias": -0.32082748773055897,
+        "score_points": 135
+      }
+    },
+    {
+      "origin": "2025-06",
+      "horizon_months": 6,
+      "grid_rows": 432,
+      "max_forecast_age": 23,
+      "cell_sbg": {
+        "contribution_wape": 0.08082963207316271,
+        "retention_cell_wape": 0.059315053112511985,
+        "signed_contribution_bias": -0.0757718754628246,
+        "score_points": 108
+      },
+      "constant_hazard_example": {
+        "contribution_wape": 0.2700374800120299,
+        "retention_cell_wape": 0.1413189046499608,
+        "signed_contribution_bias": -0.265684445424554,
+        "score_points": 108
+      }
+    }
+  ],
+  "note": "Observed-history backtests only; no 2026 outcomes are available or used."
+}
