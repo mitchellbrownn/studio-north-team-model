@@ -7,7 +7,8 @@ mean shifts with a linear acquisition-cohort trend; concentration is shared with
 the cell. Parameters are fitted by penalized maximum likelihood on observed renewal
 decisions only. Cash: expected net revenue and contribution per retained member by
 cell and customer age, smoothed across neighbouring ages; ages beyond the observed
-range reuse the cell's late-age average.
+range reuse the cell's late-age average. The profile is then recalibrated to the
+cell's last three observed calendar months (observed / profile-implied cash).
 
 This is NOT the released hierarchical sBG + Gamma reference model. Model choice and
 settings are justified by chronological validation in scripts/backtest.py.
@@ -35,6 +36,9 @@ PRIOR_TREND_SD = 1.0        # weak ridge on the cohort trend (logit scale)
 PRIOR_LOGPHI = (np.log(4.0), 2.0)  # weak prior on log concentration
 CASH_WINDOW = 1             # +/- ages pooled when estimating cash per member
 LATE_AGES = 6               # last observed ages averaged for extrapolation
+CASH_METHOD = 'recalibrate' # 'age' | 'recency' | 'cohort_trend' | 'recalibrate'
+RECENCY_HALF_LIFE = 6.0     # months, for CASH_METHOD == 'recency'
+RECAL_MONTHS = 3            # recent calendar months, for CASH_METHOD == 'recalibrate'
 
 
 def build_panel(tables: dict[str,pd.DataFrame], origin: pd.Period) -> pd.DataFrame:
@@ -114,10 +118,17 @@ def fit_sbg(cell_panel: pd.DataFrame) -> np.ndarray:
     return best.x
 
 
-def cash_profile(cell_panel: pd.DataFrame, ages: np.ndarray) -> pd.DataFrame:
+def cash_profile(cell_panel: pd.DataFrame, ages: np.ndarray, origin: pd.Period | None = None) -> pd.DataFrame:
     """Net revenue and contribution per retained member by age, pooling
-    neighbouring ages; beyond observed ages use the late-age average."""
-    by_age = cell_panel.groupby('age')[['n_retained','net','contribution']].sum()
+    neighbouring ages; beyond observed ages use the late-age average.
+    With CASH_METHOD == 'recency', observations are weighted by
+    0.5 ** (months before origin / RECENCY_HALF_LIFE)."""
+    p = cell_panel
+    if CASH_METHOD == 'recency' and origin is not None:
+        months_back = origin.ordinal-(p.cohort.apply(lambda c:c.ordinal)+p.age)
+        w = 0.5**(months_back/RECENCY_HALF_LIFE)
+        p = p.assign(n_retained=p.n_retained*w,net=p.net*w,contribution=p.contribution*w)
+    by_age = p.groupby('age')[['n_retained','net','contribution']].sum()
     by_age = by_age[by_age.index>=1]
     max_age = int(by_age.index.max())
     out = {}
@@ -134,6 +145,29 @@ def cash_profile(cell_panel: pd.DataFrame, ages: np.ndarray) -> pd.DataFrame:
     return prof
 
 
+def cash_multipliers(cell_panel: pd.DataFrame, cohorts: pd.Series, origin: pd.Period) -> np.ndarray:
+    """Per-row multiplier on the age profile (1.0 for the plain 'age' method).
+    'cohort_trend': exp(g * z_k), g from a retained-weighted regression of the
+    log ratio (observed / age-profile cash per member) on the cohort index.
+    'recalibrate': ratio of observed to profile-implied cash over the last
+    RECAL_MONTHS calendar months of the cell."""
+    if CASH_METHOD not in ('cohort_trend','recalibrate'):
+        return np.ones(len(cohorts))
+    p = cell_panel[(cell_panel.age>=1)&(cell_panel.n_retained>0)].copy()
+    prof = cash_profile(cell_panel,np.sort(p.age.unique()))
+    p['implied'] = p.n_retained*prof.loc[p.age,'contribution_pm'].to_numpy()
+    if CASH_METHOD == 'recalibrate':
+        months_back = origin.ordinal-(p.cohort.apply(lambda c:c.ordinal)+p.age)
+        r = p[months_back < RECAL_MONTHS]
+        ratio = r.contribution.sum()/r.implied.sum() if r.implied.sum()>0 else 1.0
+        return np.full(len(cohorts),float(np.clip(ratio,0.5,2.0)))
+    p = p[(p.implied>0)&(p.contribution>0)]
+    z = _cohort_z(p.cohort); y = np.log(p.contribution/p.implied); w = p.n_retained.to_numpy(float)
+    zbar = np.average(z,weights=w)
+    g = np.sum(w*(z-zbar)*(y-np.average(y,weights=w)))/np.sum(w*(z-zbar)**2)
+    return np.exp(np.clip(g,-1,1)*(_cohort_z(cohorts)-zbar))
+
+
 def predict(tables: dict[str,pd.DataFrame], prediction_grid: pd.DataFrame, *, seed: int) -> pd.DataFrame:
     """Use only the supplied observed tables; return one forecast per grid row.
     Deterministic: `seed` is accepted for the common interface but unused."""
@@ -147,8 +181,9 @@ def predict(tables: dict[str,pd.DataFrame], prediction_grid: pd.DataFrame, *, se
         rows = grid[(grid.channel==channel)&(grid.primary_need==need)].copy()
         if rows.empty:
             continue
-        prof = cash_profile(cell,np.sort(rows.age_month.unique()))
+        prof = cash_profile(cell,np.sort(rows.age_month.unique()),origin)
         rows['cohort'] = pd.PeriodIndex(rows.cohort_month,freq='M')
+        mult = cash_multipliers(cell,rows.cohort,origin)
         rows['mu'] = expit(a+b*_cohort_z(rows.cohort))
         rows['origin_age'] = [origin.ordinal-c.ordinal for c in rows.cohort]
         surv = []
@@ -157,8 +192,10 @@ def predict(tables: dict[str,pd.DataFrame], prediction_grid: pd.DataFrame, *, se
             h = r.mu*phi/(phi+ts-1.0)
             surv.append(float(r.origin_retained)*float(np.prod(1.0-h)))
         rows['predicted_retained'] = surv
-        rows['predicted_net_revenue'] = rows.predicted_retained*prof.loc[rows.age_month,'net_pm'].to_numpy()
-        rows['predicted_contribution'] = rows.predicted_retained*prof.loc[rows.age_month,'contribution_pm'].to_numpy()
+        net_pm = prof.loc[rows.age_month,'net_pm'].to_numpy()*mult
+        con_pm = np.minimum(net_pm,prof.loc[rows.age_month,'contribution_pm'].to_numpy()*mult)
+        rows['predicted_net_revenue'] = rows.predicted_retained*net_pm
+        rows['predicted_contribution'] = rows.predicted_retained*con_pm
         results.append(rows)
     out = pd.concat(results)
     missing = len(grid)-len(out)

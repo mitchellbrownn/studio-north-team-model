@@ -26,6 +26,19 @@ import main as model                                   # noqa: E402
 import example_constant_hazard as example              # noqa: E402
 
 ORIGINS = [('2024-12',12),('2025-03',9),('2025-06',6)]
+# Candidate cash specifications compared on identical origins. The selected
+# configuration is the module default in main.py; every candidate is reported.
+VARIANTS = {
+    'A_age_profile': {'CASH_METHOD':'age'},
+    'B_recency_hl3': {'CASH_METHOD':'recency','RECENCY_HALF_LIFE':3.0},
+    'B_recency_hl6': {'CASH_METHOD':'recency','RECENCY_HALF_LIFE':6.0},
+    'B_recency_hl12': {'CASH_METHOD':'recency','RECENCY_HALF_LIFE':12.0},
+    'C_cohort_trend': {'CASH_METHOD':'cohort_trend'},
+    'D_recalibrate_1m': {'CASH_METHOD':'recalibrate','RECAL_MONTHS':1},
+    'D_recalibrate_3m': {'CASH_METHOD':'recalibrate','RECAL_MONTHS':3},
+    'D_recalibrate_6m': {'CASH_METHOD':'recalibrate','RECAL_MONTHS':6},
+    'D_recalibrate_12m': {'CASH_METHOD':'recalibrate','RECAL_MONTHS':12},
+}
 
 
 def truncate(tables, origin: pd.Period):
@@ -79,9 +92,19 @@ def main():
         actual = full[['cohort_month','channel','primary_need','calendar_month','n_retained','contribution']]
         row = {'origin':o,'horizon_months':h,'grid_rows':len(grid),
                'max_forecast_age':int(grid.age_month.max())}
-        for name,fn in (('cell_sbg',model.predict),('constant_hazard_example',example.predict)):
-            pred = model.validate_output(fn(tt,grid.copy(deep=True),seed=20261116),grid)
-            row[name] = score(pred,actual)
+        defaults = {k:getattr(model,k) for k in ('CASH_METHOD','RECENCY_HALF_LIFE','RECAL_MONTHS')}
+        row['selected_default'] = score(model.validate_output(model.predict(tt,grid.copy(deep=True),seed=20261116),grid),actual)
+        for name,settings in VARIANTS.items():
+            for k,v in settings.items():
+                setattr(model,k,v)
+            try:
+                pred = model.validate_output(model.predict(tt,grid.copy(deep=True),seed=20261116),grid)
+                row[name] = score(pred,actual)
+            finally:
+                for k,v in defaults.items():
+                    setattr(model,k,v)
+        pred = model.validate_output(example.predict(tt,grid.copy(deep=True),seed=20261116),grid)
+        row['constant_hazard_example'] = score(pred,actual)
         results.append(row)
         print(json.dumps(row))
     args.output.parent.mkdir(parents=True,exist_ok=True)
